@@ -1,0 +1,27 @@
+rules:
+  - id: LPE-XFRM-ESP-FAMILY
+    name: Linux kernel XFRM and ESP module family suspected LPE exposure
+    severity: high
+    category: kernel-cve
+    description: Read-only heuristic check for the presence of Linux XFRM and ESP family modules associated with Dirty Frag, Fragnesia, and DirtyClone local privilege escalation research. Module presence alone does not confirm vulnerability.
+    affected:
+      component: Linux kernel
+      module: XFRM/ESP family
+      os: linux
+    match:
+      type: kernel_cve_module
+      modules: [esp4, esp6, rxrpc, espintcp]
+    reason: One or more related XFRM or ESP family modules are loaded, available, or could not be conclusively checked; vendor-specific confirmation is required.
+    evidence_template: |
+      {{evidence}}
+      assessment=suspected_only_no_exploit_attempted
+      safety=read_only_module_presence_check
+    impact: A vulnerable XFRM or ESP family implementation may expose a local privilege escalation path through kernel memory corruption.
+    condition: os=linux; any of esp4, esp6, rxrpc, or espintcp is loaded, available, or unknown
+    remediation: Check vendor advisories for the referenced CVEs and apply vendor-provided kernel updates. If these protocols are not required, blacklist the affected esp4, esp6, rxrpc, and espintcp modules according to vendor guidance, then verify the effective configuration after reboot.
+    false_positive_note: This heuristic is based on module presence and, when configured, an upstream kernel version range; it does not confirm exploitability. A distribution may backport either a fix or vulnerable code, so the version string is not authoritative. An older kernel may provide the module without containing vulnerable code, which is an expected source of suspected false positives. Exploitability may also depend on unprivileged user namespaces, LSM policy, or other conditions not checked by this tool. Verify the vendor's affected-version list and security advisory manually.
+    references:
+      - https://www.cve.org/CVERecord?id=CVE-2026-43284
+      - https://www.cve.org/CVERecord?id=CVE-2026-43500
+      - https://www.cve.org/CVERecord?id=CVE-2026-46300
+      - https://www.cve.org/CVERecord?id=CVE-2026-43503

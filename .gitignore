@@ -1,0 +1,52 @@
+# Compiled binaries
+*.exe
+*.exe~
+/lpe-checker-cli
+/lpe-checker-cli-*
+/lpe-checker-gui
+/lpe-checker-gui-*
+
+# Runtime and generated reports
+work/
+outputs/
+dist/
+lpe-checker-report*.html
+lpe-checker-report*.json
+lpe-checker-batch-report*.html
+lpe-checker-batch-report*.json
+
+# Host import files may contain plaintext passwords
+*.csv
+*.hosts.csv
+hosts.csv
+
+# Go test/build artifacts
+*.test
+*.out
+coverage.out
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Internal handoff/status/TODO documents must stay outside the public repository
+PROJECT_HANDOFF.md
+*HANDOFF*.md
+*handoff*.md
+*INTERNAL*.md
+*internal*.md
+*NOTES*.md
+*notes*.md
+*TODO*.md
+*todo*.md
+*交接*.md
+*现状*.md
+*待办*.md
+
+# Keep these tracked:
+# internal/rules/builtin/
+# rules/sample.yaml

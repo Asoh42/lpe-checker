@@ -1,0 +1,76 @@
+rules:
+  - id: LPE-SUDO-NOPASSWD
+    name: sudo NOPASSWD privilege risk
+    severity: High
+    category: sudo
+    confidence: high
+    status: confirmed
+    description: The current user can run commands through sudo without a password, which may provide a local privilege escalation path.
+    impact: A misconfigured sudoers entry may allow privilege escalation to root or another privileged account.
+    remediation: Minimize sudoers permissions, remove unnecessary NOPASSWD entries, and restrict allowed commands.
+    false_positive_note: Some automation accounts intentionally use limited NOPASSWD entries; verify the allowed command list and business need.
+    references:
+      - https://man7.org/linux/man-pages/man5/sudoers.5.html
+    match:
+      type: sudo_contains
+      contains: NOPASSWD
+  - id: LPE-SUID-PKEXEC
+    name: pkexec SUID file present
+    severity: Medium
+    category: suid
+    confidence: high
+    status: confirmed
+    description: pkexec is a common local privilege escalation attack surface when the SUID bit is present; verify the installed polkit version.
+    impact: Vulnerable or misconfigured polkit/pkexec installations may allow local privilege escalation.
+    remediation: Ensure polkit is updated to the vendor-fixed version. Remove the SUID bit or disable the component if it is not required.
+    false_positive_note: pkexec is commonly SUID by design; treat this as a review item unless version-specific vulnerability evidence is present.
+    references:
+      - https://www.freedesktop.org/software/polkit/docs/latest/pkexec.1.html
+    match:
+      type: suid_path
+      path: /usr/bin/pkexec
+  - id: LPE-SUID-FIND
+    name: find SUID file present
+    severity: High
+    category: suid
+    confidence: high
+    status: confirmed
+    description: find with the SUID bit can be abused to execute commands and is a common local privilege escalation misconfiguration.
+    impact: A SUID find binary can execute commands with the file owner's privileges.
+    remediation: Remove the SUID bit from find and audit how this permission was introduced.
+    false_positive_note: find should not normally be SUID on standard Linux installations.
+    references:
+      - https://gtfobins.github.io/gtfobins/find/
+    match:
+      type: suid_path
+      path: /usr/bin/find
+  - id: LPE-SUID-BASH
+    name: bash SUID file present
+    severity: Critical
+    category: suid
+    confidence: high
+    status: confirmed
+    description: bash with the SUID bit may directly preserve privileges for an interactive shell and is a critical local privilege escalation risk.
+    impact: A SUID bash binary can provide a privileged shell on affected systems.
+    remediation: Immediately remove the SUID bit from bash and investigate whether the system was misconfigured or tampered with.
+    false_positive_note: bash should not normally be SUID on standard Linux installations.
+    references:
+      - https://gtfobins.github.io/gtfobins/bash/
+    match:
+      type: suid_path
+      path: /usr/bin/bash
+  - id: LPE-SUID-VIM
+    name: vim SUID file present
+    severity: High
+    category: suid
+    confidence: high
+    status: confirmed
+    description: vim with the SUID bit can execute external programs through editor commands and is a local privilege escalation misconfiguration.
+    impact: A SUID vim binary can be used to spawn commands or edit protected files with elevated privileges.
+    remediation: Remove the SUID bit from vim and avoid running interactive tools with elevated file permissions.
+    false_positive_note: vim should not normally be SUID on standard Linux installations.
+    references:
+      - https://gtfobins.github.io/gtfobins/vim/
+    match:
+      type: suid_path
+      path: /usr/bin/vim

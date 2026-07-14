@@ -1,0 +1,16 @@
+rules:
+  - id: LPE-OLD-UBUNTU
+    name: Ubuntu security update reminder
+    severity: Info
+    category: os
+    confidence: low
+    status: suspected
+    description: Ubuntu hosts should track USN security notices and kernel updates.
+    impact: Missing vendor security updates may leave known local privilege escalation issues exploitable.
+    remediation: Apply security updates with the package manager and reboot to load the fixed kernel.
+    false_positive_note: This is an informational reminder and does not confirm a specific CVE.
+    references:
+      - https://ubuntu.com/security/notices
+    match:
+      type: os_id
+      os_id: ubuntu
