@@ -30,6 +30,8 @@ var guiText = map[string]string{
 	"finding_id":           "风险 ID",
 	"finding_name":         "风险名称",
 	"severity":             "风险等级",
+	"finding_status":       "状态",
+	"confidence":           "置信度",
 	"reason":               "命中原因",
 	"remediation":          "修复建议",
 	"invalid_host_user":    "主机和用户名不能为空。",
@@ -199,6 +201,12 @@ func ReportText(key string) string {
 		return "\u626b\u63cf\u65f6\u95f4"
 	case "failure_reason":
 		return "\u5931\u8d25\u539f\u56e0"
+	case "check_error":
+		return "\u9519\u8bef\u4fe1\u606f"
+	case "finding_status":
+		return "\u72b6\u6001"
+	case "confidence":
+		return "\u7f6e\u4fe1\u5ea6"
 	default:
 		return key
 	}
@@ -256,7 +264,7 @@ func FindingStatusZH(v string) string {
 	case "suspected":
 		return "\u7591\u4f3c"
 	case "error":
-		return "\u68c0\u6d4b\u5931\u8d25"
+		return "\u9519\u8bef"
 	default:
 		return v
 	}
@@ -324,9 +332,9 @@ func CheckStatusZH(v string) string {
 func CheckResultZH(v string) string {
 	switch v {
 	case "found":
-		return "\u53d1\u73b0\u98ce\u9669"
+		return "\u547d\u4e2d"
 	case "not_found":
-		return "\u672a\u53d1\u73b0"
+		return "\u672a\u547d\u4e2d"
 	case "unknown":
 		return "\u65e0\u6cd5\u5224\u65ad"
 	case "not_applicable":
@@ -336,66 +344,27 @@ func CheckResultZH(v string) string {
 	}
 }
 
-// CheckDescriptionZH returns the Chinese presentation text for built-in checks.
-// External rules keep their original description so the report does not alter
-// user-provided rule content.
+// CheckDescriptionZH preserves the rule-provided description verbatim. Rule
+// descriptions are data, so adding a rule must not require an ID-specific
+// presentation mapping.
 func CheckDescriptionZH(c model.CheckResult) string {
-	switch c.ID {
-	case "CVE-2026-31431":
-		return "\u4f7f\u7528\u53ea\u8bfb\u65b9\u5f0f\u542f\u53d1\u5f0f\u68c0\u67e5 Linux \u5185\u6838 algif_aead \u6a21\u5757\u4e0e CVE-2026-31431 \u7684\u7591\u4f3c\u66b4\u9732\u6761\u4ef6\u3002\u8be5\u7ed3\u679c\u4ec5\u7528\u4e8e\u63d0\u793a\u8fdb\u4e00\u6b65\u6838\u5bf9\uff0c\u4e0d\u4ee3\u8868\u786e\u8ba4\u5b58\u5728\u53ef\u5229\u7528\u6f0f\u6d1e\u3002"
-	case "LPE-SUDO-NOPASSWD":
-		return "\u68c0\u67e5\u5f53\u524d\u7528\u6237\u662f\u5426\u53ef\u4ee5\u901a\u8fc7 sudo \u514d\u5bc6\u6267\u884c\u547d\u4ee4\uff0c\u8be5\u914d\u7f6e\u53ef\u80fd\u5f62\u6210\u672c\u5730\u63d0\u6743\u8def\u5f84\u3002"
-	case "LPE-SUID-PKEXEC":
-		return "\u68c0\u67e5 pkexec \u662f\u5426\u5b58\u5728 SUID \u6743\u9650\u3002pkexec \u662f\u5e38\u89c1\u7684\u672c\u5730\u63d0\u6743\u653b\u51fb\u9762\uff0c\u9700\u7ee7\u7eed\u6838\u5bf9\u5df2\u5b89\u88c5\u7684 polkit \u7248\u672c\u3002"
-	case "LPE-SUID-FIND":
-		return "\u68c0\u67e5 find \u662f\u5426\u5b58\u5728 SUID \u6743\u9650\u3002\u5177\u6709 SUID \u6743\u9650\u7684 find \u53ef\u80fd\u88ab\u7528\u4e8e\u6267\u884c\u9ad8\u6743\u9650\u547d\u4ee4\u3002"
-	case "LPE-SUID-BASH":
-		return "\u68c0\u67e5 bash \u662f\u5426\u5b58\u5728 SUID \u6743\u9650\u3002\u8be5\u914d\u7f6e\u53ef\u80fd\u4f7f\u4ea4\u4e92\u5f0f shell \u4fdd\u7559\u9ad8\u6743\u9650\uff0c\u5c5e\u4e8e\u4e25\u91cd\u7684\u672c\u5730\u63d0\u6743\u98ce\u9669\u3002"
-	case "LPE-SUID-VIM":
-		return "\u68c0\u67e5 vim \u662f\u5426\u5b58\u5728 SUID \u6743\u9650\u3002\u5177\u6709 SUID \u6743\u9650\u7684 vim \u53ef\u80fd\u901a\u8fc7\u7f16\u8f91\u5668\u547d\u4ee4\u6267\u884c\u5916\u90e8\u7a0b\u5e8f\u3002"
-	default:
-		return c.Description
-	}
+	return c.Description
 }
 
+// FindingImpactZH preserves the rule-provided impact verbatim. Rule text is
+// data, so adding a rule must not require an ID-specific display mapping.
 func FindingImpactZH(f model.Finding) string {
-	switch f.ID {
-	case "LPE-SUDO-NOPASSWD":
-		return "sudoers \u4e2d\u5b58\u5728\u514d\u5bc6 sudo \u914d\u7f6e\u65f6\uff0c\u5f53\u524d\u7528\u6237\u53ef\u80fd\u901a\u8fc7\u5141\u8bb8\u7684\u547d\u4ee4\u63d0\u5347\u5230 root \u6216\u5176\u4ed6\u9ad8\u6743\u9650\u8d26\u6237\u3002"
-	case "LPE-SUID-PKEXEC":
-		return "pkexec \u5177\u6709 SUID \u4f4d\u65f6\u4f1a\u589e\u52a0\u672c\u5730\u63d0\u6743\u653b\u51fb\u9762\uff1b\u5982\u679c polkit \u7248\u672c\u5b58\u5728\u5df2\u77e5\u6f0f\u6d1e\u6216\u914d\u7f6e\u4e0d\u5f53\uff0c\u53ef\u80fd\u88ab\u672c\u5730\u7528\u6237\u5229\u7528\u3002"
-	case "CVE-2026-31431":
-		return "\u5982\u679c\u8fd0\u884c\u4e2d\u7684 Linux \u5185\u6838\u786e\u5b9e\u53d7 CVE-2026-31431 \u5f71\u54cd\uff0c\u76f8\u5173\u5185\u6838\u914d\u7f6e\u53ef\u80fd\u66b4\u9732\u672c\u5730\u63d0\u6743\u653b\u51fb\u9762\uff1b\u5f53\u524d\u7ed3\u679c\u4ec5\u4e3a\u7591\u4f3c\u5224\u65ad\u3002"
-	default:
-		if f.Impact != "" {
-			return f.Impact
-		}
-		return "\u6682\u65e0\u989d\u5916\u5f71\u54cd\u8bf4\u660e\u3002"
-	}
+	return f.Impact
 }
 
+// FindingRemediationZH preserves the rule-provided remediation verbatim. Rule
+// text is data, so adding a rule must not require an ID-specific display map.
 func FindingRemediationZH(f model.Finding) string {
-	switch f.ID {
-	case "LPE-SUDO-NOPASSWD":
-		return "\u6700\u5c0f\u5316 sudoers \u6743\u9650\uff0c\u79fb\u9664\u4e0d\u5fc5\u8981\u7684 NOPASSWD \u914d\u7f6e\uff0c\u5e76\u9650\u5236\u5141\u8bb8\u6267\u884c\u7684\u547d\u4ee4\u8303\u56f4\u3002"
-	case "LPE-SUID-PKEXEC":
-		return "\u786e\u8ba4 polkit \u5df2\u5347\u7ea7\u5230\u5382\u5546\u4fee\u590d\u7248\u672c\uff1b\u5982\u679c\u4e1a\u52a1\u4e0d\u9700\u8981 pkexec\uff0c\u53ef\u8bc4\u4f30\u79fb\u9664 SUID \u4f4d\u6216\u7981\u7528\u76f8\u5173\u7ec4\u4ef6\u3002"
-	case "CVE-2026-31431":
-		return "\u7ed3\u5408\u5382\u5546\u516c\u544a\u548c\u5f53\u524d\u5185\u6838\u5305\u7248\u672c\u786e\u8ba4\u662f\u5426\u53d7\u5f71\u54cd\uff1b\u5982\u786e\u8ba4\u53d7\u5f71\u54cd\uff0c\u8bf7\u5b89\u88c5\u5382\u5546\u63d0\u4f9b\u7684\u5185\u6838\u5b89\u5168\u66f4\u65b0\u5e76\u91cd\u542f\u8fdb\u5165\u4fee\u590d\u540e\u7684\u5185\u6838\u3002\u4e0d\u8981\u4ec5\u51ed\u8be5\u542f\u53d1\u5f0f\u7ed3\u679c\u5224\u65ad\u6700\u7ec8\u98ce\u9669\u3002"
-	default:
-		return f.Remediation
-	}
+	return f.Remediation
 }
 
+// FindingFalsePositiveNoteZH preserves the rule-provided note verbatim. Rule
+// text is data, so adding a rule must not require an ID-specific display map.
 func FindingFalsePositiveNoteZH(f model.Finding) string {
-	switch f.ID {
-	case "LPE-SUDO-NOPASSWD":
-		return "\u90e8\u5206\u81ea\u52a8\u5316\u8d26\u6237\u53ef\u80fd\u786e\u5b9e\u9700\u8981\u53d7\u9650\u7684 NOPASSWD \u914d\u7f6e\uff1b\u8bf7\u6838\u5bf9\u5141\u8bb8\u6267\u884c\u7684\u547d\u4ee4\u8303\u56f4\u548c\u4e1a\u52a1\u5fc5\u8981\u6027\u3002"
-	case "LPE-SUID-PKEXEC":
-		return "pkexec \u5728\u5f88\u591a\u53d1\u884c\u7248\u4e2d\u9ed8\u8ba4\u5177\u6709 SUID \u4f4d\uff1b\u8be5\u7ed3\u679c\u63d0\u793a\u9700\u8981\u7ee7\u7eed\u6838\u5bf9 polkit \u7248\u672c\u548c\u5382\u5546\u4fee\u590d\u72b6\u6001\uff0c\u4e0d\u7b49\u540c\u4e8e\u786e\u8ba4\u5b58\u5728\u53ef\u5229\u7528\u6f0f\u6d1e\u3002"
-	case "CVE-2026-31431":
-		return "\u8be5\u89c4\u5219\u4e0d\u6267\u884c\u6f0f\u6d1e\u5229\u7528\uff0c\u4e5f\u4e0d\u8bc1\u660e\u5185\u6838\u4e00\u5b9a\u5b58\u5728\u6f0f\u6d1e\uff1b\u6a21\u5757\u5b58\u5728\u6216\u72b6\u6001 unknown \u4ec5\u8868\u793a\u9700\u8981\u7ed3\u5408\u5382\u5546\u516c\u544a\u8fdb\u4e00\u6b65\u786e\u8ba4\u3002"
-	default:
-		return f.FalsePositiveNote
-	}
+	return f.FalsePositiveNote
 }

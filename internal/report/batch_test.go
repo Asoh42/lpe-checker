@@ -16,6 +16,8 @@ func TestGenerateBatchHTMLSummaryDetailsAndFailure(t *testing.T) {
 	first.Target.Host = "192.0.2.10"
 	first.ScanTarget = "192.0.2.10:22"
 	first.Target.Hostname = "host-one"
+	first.Findings[0].Status = "suspected"
+	first.Findings[0].Confidence = "medium"
 	second := sampleReport()
 	second.Target.Host = "192.0.2.20"
 	second.Target.Hostname = "host-two"
@@ -38,6 +40,7 @@ func TestGenerateBatchHTMLSummaryDetailsAndFailure(t *testing.T) {
 		"192.0.2.10:22", "192.0.2.20:22", "192.0.2.30:22",
 		"认证失败（密码或密钥被拒绝）", "扫描目标", "CVE-2026-31431",
 		"host-one", "host-two", "CHECK-1", "CHECK-TWO",
+		"<th>置信度</th><td>中</td>", "<th>状态</th><td>疑似</td>",
 		`href="#host-1"`, `id="host-1"`, `href="#host-3"`, `id="host-3"`,
 	} {
 		if !strings.Contains(html, expected) {
@@ -47,8 +50,35 @@ func TestGenerateBatchHTMLSummaryDetailsAndFailure(t *testing.T) {
 	if strings.Contains(html, "example-password") || strings.Contains(html, "user=root") {
 		t.Fatalf("batch HTML leaked the raw authentication error: %s", html)
 	}
+	if strings.Contains(html, "错误信息") || strings.Contains(html, `class="check-error"`) {
+		t.Fatalf("batch details with successful checks unexpectedly rendered the check error column: %s", html)
+	}
 	if strings.Count(strings.ToLower(html), "<html") != 1 {
 		t.Fatalf("batch HTML is not one page: %s", html)
+	}
+}
+
+func TestGenerateBatchHTMLIncludesSharedCheckErrorColumnWhenNeeded(t *testing.T) {
+	hostReport := sampleReport()
+	hostReport.Checks[0].Status = "failed"
+	hostReport.Checks[0].Result = "unknown"
+	hostReport.Checks[0].Error = ClassifyScanError(errors.New("unclassified internal detail"))
+	batch := NewBatchReport([]model.BatchReportHost{
+		{Target: "192.0.2.10:22", Status: BatchStatusSuccess, Report: &hostReport},
+	}, time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC))
+
+	var output bytes.Buffer
+	if err := GenerateBatchHTML(&output, batch); err != nil {
+		t.Fatalf("GenerateBatchHTML returned error: %v", err)
+	}
+	html := output.String()
+	for _, expected := range []string{`<th class="check-error">错误信息</th>`, "扫描失败（其它错误）"} {
+		if !strings.Contains(html, expected) {
+			t.Fatalf("batch HTML missing shared check error detail %q: %s", expected, html)
+		}
+	}
+	if strings.Contains(html, "unclassified internal detail") {
+		t.Fatalf("batch HTML leaked the raw check error: %s", html)
 	}
 }
 

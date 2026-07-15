@@ -3,6 +3,7 @@ package report
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,6 +32,31 @@ func TestWriteHTMLFile(t *testing.T) {
 	mustContain(t, html, "\u5df2\u786e\u8ba4\u98ce\u9669")
 	mustContain(t, html, "https://example.com/advisory")
 	mustContain(t, html, "href=\"https://example.com/advisory\"")
+	mustContain(t, html, `<table class="checks">`)
+	mustContain(t, html, `.checks th:nth-child(4)`)
+	mustContain(t, html, `.checks thead th{white-space:nowrap}`)
+	mustContain(t, html, `.checks th.check-error{white-space:nowrap;min-width:72px}`)
+	mustContain(t, html, `.finding table th{white-space:nowrap;min-width:72px}`)
+	if strings.Contains(html, "错误信息") || strings.Contains(html, `class="check-error"`) {
+		t.Fatalf("successful checks unexpectedly rendered the error column: %s", html)
+	}
+}
+
+func TestGenerateHTMLIncludesCheckErrorColumnWhenNeeded(t *testing.T) {
+	r := sampleReport()
+	r.Checks[0].Status = "failed"
+	r.Checks[0].Result = "unknown"
+	r.Checks[0].Error = ClassifyScanError(errors.New("unclassified internal detail"))
+	var buf bytes.Buffer
+	if err := GenerateHTML(&buf, r); err != nil {
+		t.Fatalf("GenerateHTML failed: %v", err)
+	}
+	html := buf.String()
+	mustContain(t, html, `<th class="check-error">错误信息</th>`)
+	mustContain(t, html, "扫描失败（其它错误）")
+	if strings.Contains(html, "unclassified internal detail") {
+		t.Fatalf("HTML leaked the raw check error: %s", html)
+	}
 }
 
 func TestGenerateHTMLEmptyFindings(t *testing.T) {
@@ -42,6 +68,20 @@ func TestGenerateHTMLEmptyFindings(t *testing.T) {
 		t.Fatalf("GenerateHTML failed: %v", err)
 	}
 	mustContain(t, buf.String(), "&#26410;&#21457;&#29616;&#39118;&#38505;")
+}
+
+func TestGenerateHTMLShowsFindingStatusAndConfidence(t *testing.T) {
+	r := sampleReport()
+	r.Findings[0].Status = "suspected"
+	r.Findings[0].Confidence = "medium"
+	var buf bytes.Buffer
+	if err := GenerateHTML(&buf, r); err != nil {
+		t.Fatalf("GenerateHTML failed: %v", err)
+	}
+	html := buf.String()
+	for _, expected := range []string{"<th>置信度</th><td>中</td>", "<th>状态</th><td>疑似</td>"} {
+		mustContain(t, html, expected)
+	}
 }
 
 func TestScanTargetHTMLAndJSON(t *testing.T) {

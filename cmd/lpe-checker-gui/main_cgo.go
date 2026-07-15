@@ -123,7 +123,7 @@ func main() {
 	// Fyne v2.5 does not expose a stable public API for querying the usable
 	// monitor work area before showing a window. Use a conservative resizable
 	// default that fits typical 1366x768 laptop displays.
-	w.Resize(fyne.NewSize(1000, 680))
+	w.Resize(fyne.NewSize(1120, 700))
 
 	var currentReport model.Report
 	hasReport := false
@@ -142,23 +142,23 @@ func main() {
 	}
 
 	findingsTable := widget.NewTable(
-		func() (int, int) { return len(findings) + 1, 5 },
+		func() (int, int) { return len(findings) + 1, 7 },
 		func() fyne.CanvasObject { return newTruncatedLabel() },
 		func(id widget.TableCellID, obj fyne.CanvasObject) {
 			label := obj.(*widget.Label)
 			if id.Row == 0 {
-				headers := []string{display.GUIText("finding_id"), display.GUIText("finding_name"), display.GUIText("severity"), display.GUIText("reason"), display.GUIText("remediation")}
+				headers := []string{display.GUIText("finding_id"), display.GUIText("finding_name"), display.GUIText("severity"), display.GUIText("finding_status"), display.GUIText("confidence"), display.GUIText("reason"), display.GUIText("remediation")}
 				label.SetText(headers[id.Col])
 				label.TextStyle = fyne.TextStyle{Bold: true}
 				return
 			}
 			label.TextStyle = fyne.TextStyle{}
 			finding := findings[id.Row-1]
-			cols := []string{finding.ID, finding.Name, display.SeverityZH(strings.ToLower(finding.Severity)), finding.Reason, display.FindingRemediationZH(finding)}
+			cols := []string{finding.ID, finding.Name, display.SeverityZH(strings.ToLower(finding.Severity)), display.FindingStatusZH(strings.ToLower(finding.Status)), display.ConfidenceZH(strings.ToLower(finding.Confidence)), finding.Reason, display.FindingRemediationZH(finding)}
 			label.SetText(cols[id.Col])
 		},
 	)
-	for column, width := range []float32{150, 220, 100, 280, 330} {
+	for column, width := range []float32{140, 180, 100, 90, 90, 180, 210} {
 		findingsTable.SetColumnWidth(column, width)
 	}
 	clearDetails := func(message string) {
@@ -193,12 +193,14 @@ func main() {
 			obj.(*widget.Label).SetText(text)
 		},
 	)
-	overviewList.OnSelected = func(id widget.ListItemID) {
+	selectedOverviewID := widget.ListItemID(-1)
+	showDetailsFor := func(id widget.ListItemID) {
 		resultsMu.Lock()
 		if id < 0 || id >= len(overviewResults) {
 			resultsMu.Unlock()
 			return
 		}
+		selectedOverviewID = id
 		result := overviewResults[id]
 		resultsMu.Unlock()
 		if result.Status == batch.StatusSuccess || result.Status == batch.StatusCommandError {
@@ -223,6 +225,7 @@ func main() {
 			clearDetails(display.BatchStatusZH(result.Status))
 		}
 	}
+	overviewList.OnSelected = showDetailsFor
 
 	hostRowsBox := container.NewVBox()
 	hostRows := []*hostInputRow{}
@@ -484,11 +487,15 @@ func main() {
 
 		resultsMu.Lock()
 		overviewResults = make([]batch.Result, len(hosts))
+		selectedOverviewID = -1
 		for index, host := range hosts {
 			overviewResults[index] = batch.Result{Index: index, Target: host.ID(), Status: batch.StatusWaiting}
 		}
 		resultsMu.Unlock()
 		overviewList.Refresh()
+		// Fyne List.Select short-circuits when the same ID is already selected;
+		// clear the previous batch selection so that row can trigger OnSelected again.
+		overviewList.UnselectAll()
 		clearDetails(display.GUIText("no_host_selected"))
 		ctx, cancel := context.WithCancel(context.Background())
 		scanCancel = cancel
@@ -516,8 +523,14 @@ func main() {
 			})
 			resultsMu.Lock()
 			overviewResults = finalResults
+			selectedID := selectedOverviewID
 			resultsMu.Unlock()
 			overviewList.Refresh()
+			// Fyne List.Select short-circuits for an already-selected ID; refresh
+			// that row explicitly now that its final result has replaced scan state.
+			if selectedID >= 0 {
+				showDetailsFor(selectedID)
+			}
 			status.SetText(display.GUIBatchFinished(len(finalResults)))
 			scanButton.Enable()
 			stopButton.Disable()
