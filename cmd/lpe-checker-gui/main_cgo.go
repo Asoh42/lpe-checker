@@ -393,8 +393,6 @@ func main() {
 		widget.NewLabel(display.GUIText("credential_groups")),
 		widget.NewButton(display.GUIText("add_credential"), addCredentialGroup),
 	)
-	credentialScroll := container.NewVScroll(credentialRowsBox)
-	credentialArea := container.New(&fixedHeightLayout{height: 64}, credentialScroll)
 	hostHeader := container.NewGridWithColumns(6,
 		widget.NewLabel(display.GUIText("host")), widget.NewLabel(display.GUIText("port")),
 		widget.NewLabel(display.GUIText("user")), widget.NewLabel(display.GUIText("password_source")),
@@ -406,9 +404,6 @@ func main() {
 	)
 	securityNotice := widget.NewLabel(display.GUIText("csv_security"))
 	securityNotice.Wrapping = fyne.TextWrapWord
-	hostScroll := container.NewVScroll(hostRowsBox)
-	hostArea := container.New(&fixedHeightLayout{height: 84}, hostScroll)
-
 	ruleChecks := make(map[string]*widget.Check)
 	ruleRows := container.NewVBox()
 	loadedRules, ruleLoadErr := rules.LoadDefaultWithSources("")
@@ -422,8 +417,6 @@ func main() {
 			ruleRows.Add(check)
 		}
 	}
-	ruleScroll := container.NewVScroll(ruleRows)
-	ruleArea := container.New(&fixedHeightLayout{height: 76}, ruleScroll)
 	ruleHeader := container.NewHBox(
 		widget.NewLabel(display.GUIText("detection_rules")),
 		widget.NewButton(display.GUIText("select_all"), func() {
@@ -441,6 +434,7 @@ func main() {
 	var scanCancel context.CancelFunc
 	var scanButton, stopButton *widget.Button
 	var batchExportButtons []*widget.Button
+	var configAccordion *widget.Accordion
 	startBatch := func() {
 		if len(hostRows) == 0 {
 			status.SetText(display.GUIText("no_hosts"))
@@ -485,6 +479,9 @@ func main() {
 			return
 		}
 
+		// The user's focus moves from configuration to results once a valid scan starts.
+		// Keep scan controls outside this accordion so progress and cancellation stay visible.
+		configAccordion.CloseAll()
 		resultsMu.Lock()
 		overviewResults = make([]batch.Result, len(hosts))
 		selectedOverviewID = -1
@@ -708,26 +705,28 @@ func main() {
 	for _, button := range batchExportButtons {
 		button.Disable()
 	}
-	singleExportGroup := container.NewHBox(
-		widget.NewLabel(display.GUIText("single_report_group")),
+	exportActions := container.NewHScroll(container.NewHBox(
 		widget.NewButton(display.GUIText("export_html"), exportHTML),
 		widget.NewButton(display.GUIText("export_json"), exportJSON),
-	)
-	batchExportGroup := container.NewHBox(
-		widget.NewLabel(display.GUIText("batch_report_group")),
 		exportAllHTMLButton, exportAllJSONButton, exportSelectedHTMLButton, exportSelectedJSONButton,
+	))
+	actions := container.NewBorder(nil, nil, container.NewHBox(scanButton, stopButton, status), nil, exportActions)
+	configContent := container.New(&compactVBoxLayout{gap: 2},
+		credentialHeader, credentialRowsBox,
+		hostHeader, securityNotice, hostRowsBox,
+		ruleHeader, ruleRows,
 	)
-	actions := container.NewVBox(
-		container.NewHBox(scanButton, stopButton, status),
-		singleExportGroup,
-		batchExportGroup,
-	)
-	inputArea := container.New(&compactVBoxLayout{gap: 2}, credentialHeader, credentialArea, hostHeader, securityNotice, hostArea, ruleHeader, ruleArea, actions)
+	configScroll := container.NewVScroll(configContent)
+	configArea := container.New(&fixedHeightLayout{height: 260}, configScroll)
+	configTitle := display.GUIText("credential_groups") + " / " + display.GUIText("host") + " / " + display.GUIText("detection_rules")
+	configAccordion = widget.NewAccordion(widget.NewAccordionItem(configTitle, configArea))
+	configAccordion.Open(0)
+	topArea := container.New(&compactVBoxLayout{gap: 2}, configAccordion, actions)
 	detail := container.NewBorder(widget.NewLabel(display.GUIText("host_details")), nil, nil, nil, container.NewVSplit(detailTextScroll, findingsTable))
 	overview := container.NewBorder(widget.NewLabel(display.GUIText("host_overview")), nil, nil, nil, overviewList)
 	split := container.NewHSplit(overview, detail)
 	split.Offset = 0.38
-	w.SetContent(container.NewBorder(inputArea, nil, nil, nil, split))
+	w.SetContent(container.NewBorder(topArea, nil, nil, nil, split))
 	w.SetOnClosed(func() {
 		if scanCancel != nil {
 			scanCancel()
