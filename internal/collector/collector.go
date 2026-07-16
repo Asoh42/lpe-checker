@@ -98,7 +98,6 @@ func (c Collector) Collect(ctx context.Context) (model.SystemInfo, error) {
 	} else {
 		errs = append(errs, err)
 		info.CollectionErrors["user"] = safeCollectionError("id", err)
-		info.CurrentUser.Raw = err.Error()
 	}
 
 	if out, err := c.Runner.Run(ctx, "sudo", "-n", "-l"); err == nil {
@@ -116,7 +115,12 @@ func (c Collector) Collect(ctx context.Context) (model.SystemInfo, error) {
 		errs = append(errs, err)
 		info.CollectionErrors["suid"] = safeCollectionError("find SUID candidates", err)
 	}
-	info.KernelModules = c.collectKernelModules(ctx, info.KernelVersion, c.KernelModuleNames)
+	var moduleFailures []kernelModuleCollectionFailure
+	info.KernelModules, moduleFailures = c.collectKernelModules(ctx, info.KernelVersion, c.KernelModuleNames)
+	for _, failure := range moduleFailures {
+		errs = append(errs, failure.err)
+		info.CollectionErrors[failure.key] = safeCollectionError(failure.command, failure.err)
+	}
 	return info, errors.Join(errs...)
 }
 
@@ -145,14 +149,21 @@ func (c Collector) Hostname(ctx context.Context) (string, error) {
 	return strings.TrimSpace(out), nil
 }
 
-func (c Collector) collectKernelModules(ctx context.Context, kernelVersion string, moduleNames []string) map[string]model.KernelModule {
+type kernelModuleCollectionFailure struct {
+	key     string
+	command string
+	err     error
+}
+
+func (c Collector) collectKernelModules(ctx context.Context, kernelVersion string, moduleNames []string) (map[string]model.KernelModule, []kernelModuleCollectionFailure) {
 	modules := make(map[string]model.KernelModule, len(moduleNames))
+	failures := make([]kernelModuleCollectionFailure, 0)
 	platform := c.Platform
 	if platform == "" {
 		platform = runtime.GOOS
 	}
 	if len(moduleNames) == 0 {
-		return modules
+		return modules, failures
 	}
 
 	if platform != "linux" {
@@ -162,10 +173,15 @@ func (c Collector) collectKernelModules(ctx context.Context, kernelVersion strin
 				Raw: "non-linux platform; skipped read-only kernel module checks",
 			}
 		}
-		return modules
+		return modules, failures
 	}
 
 	lsmodOutput, lsmodErr := c.Runner.Run(ctx, "lsmod")
+	if lsmodErr != nil {
+		failures = append(failures, kernelModuleCollectionFailure{
+			key: "kernel_modules:lsmod", command: "lsmod", err: lsmodErr,
+		})
+	}
 	loaded := make(map[string]struct{})
 	if lsmodErr == nil {
 		for _, line := range strings.Split(lsmodOutput, "\n") {
@@ -184,13 +200,13 @@ func (c Collector) collectKernelModules(ctx context.Context, kernelVersion strin
 			if _, ok := loaded[moduleName]; ok {
 				module.LoadedStatus = "loaded"
 			}
-		} else {
-			module.Raw = "lsmod failed: " + lsmodErr.Error()
 		}
 
 		paths, err := c.collectModuleFiles(ctx, kernelVersion, moduleName)
 		if err != nil {
-			module.Raw += "\nmodule file check failed: " + err.Error()
+			failures = append(failures, kernelModuleCollectionFailure{
+				key: "kernel_module:" + moduleName, command: "module file check", err: err,
+			})
 			modules[moduleName] = module
 			continue
 		}
@@ -202,7 +218,7 @@ func (c Collector) collectKernelModules(ctx context.Context, kernelVersion strin
 		}
 		modules[moduleName] = module
 	}
-	return modules
+	return modules, failures
 }
 
 func (c Collector) collectModuleFiles(ctx context.Context, kernelVersion, moduleName string) ([]string, error) {
