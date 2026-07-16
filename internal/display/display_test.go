@@ -86,6 +86,16 @@ func TestCheckResultZH(t *testing.T) {
 	}
 }
 
+func TestCollectionErrorZH(t *testing.T) {
+	got := CollectionErrorZH("collection_error:timeout:uname -r")
+	if got != "只读采集命令 uname -r 失败：执行超时" {
+		t.Fatalf("CollectionErrorZH() = %q", got)
+	}
+	if got := CollectionErrorZH("legacy safe text"); got != "legacy safe text" {
+		t.Fatalf("unknown collection error format changed: %q", got)
+	}
+}
+
 // Rule descriptions must pass through unchanged for every ID. This preserves
 // the architecture rule that adding a CVE is a YAML-only change and never
 // requires an ID-specific display mapping.

@@ -111,7 +111,7 @@ func printText(r model.Report) {
 				fmt.Println(indent(firstNonEmpty(c.Evidence, c.Description)))
 			} else if c.Status == "failed" {
 				fmt.Println("\u9519\u8bef\uff1a")
-				fmt.Println(indent(c.Error))
+				fmt.Println(indent(display.CollectionErrorZH(c.Error)))
 			} else {
 				fmt.Println("\u8bc1\u636e\uff1a")
 				fmt.Println(indent(c.Evidence))

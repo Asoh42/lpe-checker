@@ -72,20 +72,20 @@ func (c Collector) Collect(ctx context.Context) (model.SystemInfo, error) {
 		info.KernelVersion = out
 	} else {
 		errs = append(errs, err)
-		info.CollectionErrors["kernel"] = err.Error()
+		info.CollectionErrors["kernel"] = safeCollectionError("uname -r", err)
 		info.KernelVersion = runtime.GOOS + " (uname unavailable)"
 	}
 	if out, err := c.Runner.Run(ctx, "uname", "-m"); err == nil {
 		info.Architecture = strings.TrimSpace(out)
 	} else {
 		errs = append(errs, err)
-		info.CollectionErrors["architecture"] = err.Error()
+		info.CollectionErrors["architecture"] = safeCollectionError("uname -m", err)
 	}
 
 	osRelease, err := c.Runner.Run(ctx, "cat", "/etc/os-release")
 	if err != nil {
 		errs = append(errs, err)
-		info.CollectionErrors["os_release"] = err.Error()
+		info.CollectionErrors["os_release"] = safeCollectionError("cat /etc/os-release", err)
 	}
 	osInfo := parseOSRelease(osRelease)
 	info.OSID = osInfo["ID"]
@@ -97,7 +97,7 @@ func (c Collector) Collect(ctx context.Context) (model.SystemInfo, error) {
 		info.CurrentUser = parseIDOutput(out)
 	} else {
 		errs = append(errs, err)
-		info.CollectionErrors["user"] = err.Error()
+		info.CollectionErrors["user"] = safeCollectionError("id", err)
 		info.CurrentUser.Raw = err.Error()
 	}
 
@@ -108,13 +108,13 @@ func (c Collector) Collect(ctx context.Context) (model.SystemInfo, error) {
 	} else {
 		info.SudoList = model.SudoList{Available: false, Raw: "sudo -n -l unavailable or requires a password"}
 		errs = append(errs, err)
-		info.CollectionErrors["sudo"] = err.Error()
+		info.CollectionErrors["sudo"] = safeCollectionError("sudo -n -l", err)
 	}
 
 	info.SUIDFiles, err = c.collectSUIDFiles(ctx)
 	if err != nil {
 		errs = append(errs, err)
-		info.CollectionErrors["suid"] = err.Error()
+		info.CollectionErrors["suid"] = safeCollectionError("find SUID candidates", err)
 	}
 	info.KernelModules = c.collectKernelModules(ctx, info.KernelVersion, c.KernelModuleNames)
 	return info, errors.Join(errs...)

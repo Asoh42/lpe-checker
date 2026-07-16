@@ -344,6 +344,30 @@ func CheckResultZH(v string) string {
 	}
 }
 
+// CollectionErrorZH renders the collector's stable, report-safe error code.
+// Raw runner errors are deliberately never accepted as part of this format.
+func CollectionErrorZH(v string) string {
+	command, reason, ok := collector.ParseSafeCollectionError(v)
+	if !ok {
+		return v
+	}
+	reasonText := map[string]string{
+		collector.CollectionErrorReasonNotFound:   "命令不存在",
+		collector.CollectionErrorReasonPermission: "权限不足",
+		collector.CollectionErrorReasonTimeout:    "执行超时",
+		collector.CollectionErrorReasonCanceled:   "已取消",
+		collector.CollectionErrorReasonLocalExit:  "本地命令返回非零状态",
+		collector.CollectionErrorReasonRemoteExit: "远程命令返回非零状态",
+		collector.CollectionErrorReasonConnection: "连接失败",
+		collector.CollectionErrorReasonNotAllowed: "只读白名单拒绝",
+		collector.CollectionErrorReasonOther:      "其它错误",
+	}[reason]
+	if reasonText == "" {
+		reasonText = "其它错误"
+	}
+	return fmt.Sprintf("只读采集命令 %s 失败：%s", command, reasonText)
+}
+
 // CheckDescriptionZH preserves the rule-provided description verbatim. Rule
 // descriptions are data, so adding a rule must not require an ID-specific
 // presentation mapping.
