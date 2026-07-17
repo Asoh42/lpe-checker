@@ -36,7 +36,7 @@ func TestWriteHTMLFile(t *testing.T) {
 	mustContain(t, html, `.checks th:nth-child(4)`)
 	mustContain(t, html, `.checks thead th{white-space:nowrap}`)
 	mustContain(t, html, `.checks th.check-error{white-space:nowrap;min-width:72px}`)
-	mustContain(t, html, `.finding table th{white-space:nowrap;min-width:72px}`)
+	mustContain(t, html, `.single-report .finding table th{white-space:nowrap;min-width:72px}`)
 	if strings.Contains(html, "错误信息") || strings.Contains(html, `class="check-error"`) {
 		t.Fatalf("successful checks unexpectedly rendered the error column: %s", html)
 	}
@@ -151,4 +151,14 @@ func mustContain(t *testing.T, got, want string) {
 	if !strings.Contains(got, want) {
 		t.Fatalf("expected html to contain %q\nhtml=%s", want, got)
 	}
+}
+
+func htmlStyleBlock(t *testing.T, html string) string {
+	t.Helper()
+	start := strings.Index(html, "<style>")
+	end := strings.Index(html, "</style>")
+	if start < 0 || end < start {
+		t.Fatalf("HTML does not contain a complete style block: %s", html)
+	}
+	return html[start+len("<style>") : end]
 }

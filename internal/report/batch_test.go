@@ -82,6 +82,41 @@ func TestGenerateBatchHTMLIncludesSharedCheckErrorColumnWhenNeeded(t *testing.T)
 	}
 }
 
+func TestSingleAndBatchHTMLUseIdenticalSharedCSS(t *testing.T) {
+	report := sampleReport()
+	batch := NewBatchReport([]model.BatchReportHost{
+		{Target: "192.0.2.10:22", Status: BatchStatusSuccess, Report: &report},
+	}, time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC))
+
+	var singleOutput, batchOutput bytes.Buffer
+	if err := GenerateHTML(&singleOutput, report); err != nil {
+		t.Fatalf("GenerateHTML returned error: %v", err)
+	}
+	if err := GenerateBatchHTML(&batchOutput, batch); err != nil {
+		t.Fatalf("GenerateBatchHTML returned error: %v", err)
+	}
+
+	singleCSS := htmlStyleBlock(t, singleOutput.String())
+	batchCSS := htmlStyleBlock(t, batchOutput.String())
+	for name, css := range map[string]string{"single": singleCSS, "batch": batchCSS} {
+		for _, expected := range []string{
+			`.checks thead th{white-space:nowrap}`,
+			`.checks th:nth-child(4),.checks td:nth-child(4),.checks th:nth-child(5),.checks td:nth-child(5){white-space:nowrap;min-width:72px}`,
+			`.checks th.check-error{white-space:nowrap;min-width:72px}`,
+		} {
+			if !strings.Contains(css, expected) {
+				t.Fatalf("%s HTML CSS missing %q: %s", name, expected, css)
+			}
+		}
+	}
+	if singleCSS != batchCSS {
+		t.Fatalf("single and batch HTML CSS drifted\nsingle=%s\nbatch=%s", singleCSS, batchCSS)
+	}
+	if !strings.Contains(batchOutput.String(), `<table class="checks">`) {
+		t.Fatalf("batch HTML did not render the shared checks table: %s", batchOutput.String())
+	}
+}
+
 func TestGenerateBatchJSONRoundTrip(t *testing.T) {
 	report := sampleReport()
 	report.Target.Host = "192.0.2.10"
