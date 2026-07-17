@@ -22,7 +22,7 @@ const (
 
 var allowedSSHCommands = map[string]struct{}{
 	"uname": {}, "id": {}, "sudo": {}, "/sbin/lsmod": {}, "cat": {},
-	"hostname": {}, "find": {}, "ls": {}, "test": {},
+	"hostname": {}, "find": {},
 }
 
 var (
@@ -223,8 +223,6 @@ func allowedSSHCommandArgs(allowedKernelModules map[string]struct{}, name string
 		return len(args) == 1 && args[0] == "/etc/os-release"
 	case "find":
 		return allowedSUIDFindArgs(args) || allowedModuleFindArgs(allowedKernelModules, args)
-	case "ls", "test":
-		return true
 	default:
 		return false
 	}
@@ -262,6 +260,9 @@ func allowedModuleFindArgs(allowedKernelModules map[string]struct{}, args []stri
 }
 
 func shellQuote(value string) string {
+	// Kernel versions come from target-controlled uname -r output and are used in
+	// /lib/modules/<kernel> find arguments. The path regexp is the first layer;
+	// quoting is the second, so keep both even though arguments are validated.
 	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }
 

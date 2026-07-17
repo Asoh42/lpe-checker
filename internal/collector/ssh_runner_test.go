@@ -189,15 +189,47 @@ func TestBuildSSHCommandRejectsCommandsOutsideAllowlist(t *testing.T) {
 	}
 }
 
-func TestShellQuoteProtectsSpecialArguments(t *testing.T) {
-	args := []string{"space here", "single'quote", "$HOME", "`id`", "x;y", "algif_aead.ko*"}
-	got, err := buildSSHCommand(testAllowedKernelModules, "ls", args...)
-	if err != nil {
-		t.Fatal(err)
+func TestBuildSSHCommandRejectsRemovedProbeCommands(t *testing.T) {
+	// ls and test used to be allowed with arbitrary arguments, contrary to the
+	// exact-shape allowlist boundary. If a future feature needs file-existence
+	// checks, it must define and validate that exact shape instead of restoring
+	// either bare command.
+	for _, tt := range []struct {
+		name string
+		args []string
+	}{
+		{name: "ls", args: []string{"/etc"}},
+		{name: "test", args: []string{"-e", "/etc/passwd"}},
+	} {
+		_, err := buildSSHCommand(testAllowedKernelModules, tt.name, tt.args...)
+		var rejected *CommandNotAllowedError
+		if !errors.As(err, &rejected) || rejected.Name != tt.name {
+			t.Fatalf("removed probe command %q was not rejected: %v", tt.name, err)
+		}
 	}
-	want := "'ls' 'space here' 'single'\"'\"'quote' '$HOME' '`id`' 'x;y' 'algif_aead.ko*'"
-	if got != want {
-		t.Fatalf("quoted command = %q; want %q", got, want)
+}
+
+// This test calls shellQuote directly because, after removing ls and test, all
+// allowed commands accept only exact argument shapes: uname has -r/-m, cat has
+// /etc/os-release, sudo has -n -l, and both find forms are validated. No valid
+// command shape can carry spaces, quotes, $, backticks, or semicolons. That is
+// the allowlist working correctly, not a reduction in quoting coverage.
+func TestShellQuoteProtectsSpecialArguments(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{input: "space here", want: "'space here'"},
+		{input: "single'quote", want: "'single'\"'\"'quote'"},
+		{input: "$HOME", want: "'$HOME'"},
+		{input: "`id`", want: "'`id`'"},
+		{input: "x;y", want: "'x;y'"},
+		{input: "algif_aead.ko*", want: "'algif_aead.ko*'"},
+	}
+	for _, tt := range tests {
+		if got := shellQuote(tt.input); got != tt.want {
+			t.Errorf("shellQuote(%q) = %q; want %q", tt.input, got, tt.want)
+		}
 	}
 }
 
