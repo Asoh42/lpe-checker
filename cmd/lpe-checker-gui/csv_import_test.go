@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"strings"
 	"testing"
+
+	htmlreport "lpe-checker/internal/report"
 )
 
 func TestParseCSVHostsNormalAndHeader(t *testing.T) {
@@ -13,6 +16,23 @@ func TestParseCSVHostsNormalAndHeader(t *testing.T) {
 	}
 	if hosts[1].Host != "198.51.100.219" || hosts[1].Port != 53222 || hosts[1].User != "admin" {
 		t.Fatalf("unexpected second host: %+v", hosts[1])
+	}
+}
+
+func TestGeneratedHostCSVTemplateRoundTripsThroughImporter(t *testing.T) {
+	var template bytes.Buffer
+	if err := htmlreport.GenerateHostCSVTemplate(&template); err != nil {
+		t.Fatal(err)
+	}
+	hosts, skipped, err := parseCSVHosts(bytes.NewReader(template.Bytes()))
+	if err != nil || skipped != 0 || len(hosts) != 0 {
+		t.Fatalf("empty generated template was not import-compatible: hosts=%+v skipped=%d err=%v", hosts, skipped, err)
+	}
+
+	filled := append(append([]byte{}, template.Bytes()...), []byte("example.org,22,root,example-password\n")...)
+	hosts, skipped, err = parseCSVHosts(bytes.NewReader(filled))
+	if err != nil || skipped != 0 || len(hosts) != 1 || hosts[0].Host != "example.org" || hosts[0].Port != 22 || hosts[0].User != "root" || hosts[0].Password != "example-password" {
+		t.Fatalf("filled generated template did not round trip: hosts=%+v skipped=%d err=%v", hosts, skipped, err)
 	}
 }
 

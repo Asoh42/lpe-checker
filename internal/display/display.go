@@ -93,6 +93,14 @@ func GUIText(key string) string {
 		return "\u5bfc\u51fa\u9009\u4e2d HTML\u2026"
 	case "export_selected_json":
 		return "\u5bfc\u51fa\u9009\u4e2d JSON\u2026"
+	case "export_csv":
+		return "\u5bfc\u51fa CSV"
+	case "export_all_csv":
+		return "\u5bfc\u51fa\u5168\u90e8 CSV"
+	case "export_selected_csv":
+		return "\u5bfc\u51fa\u9009\u4e2d CSV\u2026"
+	case "export_csv_template":
+		return "\u5bfc\u51fa CSV \u6a21\u677f"
 	default:
 		return guiText[key]
 	}
@@ -207,6 +215,26 @@ func ReportText(key string) string {
 		return "\u72b6\u6001"
 	case "confidence":
 		return "\u7f6e\u4fe1\u5ea6"
+	case "csv_scan_target":
+		return "\u4e3b\u673a IP"
+	case "csv_finding_id":
+		return "\u98ce\u9669 ID"
+	case "csv_finding_name":
+		return "\u98ce\u9669\u540d\u79f0"
+	case "csv_severity":
+		return "\u98ce\u9669\u7b49\u7ea7"
+	case "csv_reason":
+		return "\u547d\u4e2d\u539f\u56e0"
+	case "csv_remediation":
+		return "\u4fee\u590d\u5efa\u8bae"
+	case "csv_template_host":
+		return "\u4e3b\u673a"
+	case "csv_template_port":
+		return "\u7aef\u53e3"
+	case "csv_template_user":
+		return "\u7528\u6237\u540d"
+	case "csv_template_password":
+		return "\u5bc6\u7801"
 	default:
 		return key
 	}

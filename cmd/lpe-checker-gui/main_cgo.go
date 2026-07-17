@@ -323,6 +323,10 @@ func main() {
 		rebuildHostRows()
 	}
 	addHostRow(batch.Host{})
+	var saveGenerated func(string, func(io.Writer) error)
+	exportCSVTemplate := func() {
+		saveGenerated("lpe-checker-hosts-template.csv", htmlreport.GenerateHostCSVTemplate)
+	}
 	importCSV := func() {
 		open := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
 			if err != nil {
@@ -393,14 +397,16 @@ func main() {
 		widget.NewLabel(display.GUIText("credential_groups")),
 		widget.NewButton(display.GUIText("add_credential"), addCredentialGroup),
 	)
+	hostActions := container.NewHBox(
+		widget.NewButton(display.GUIText("add_host"), func() { addHostRow(batch.Host{}) }),
+		widget.NewButton(display.GUIText("import_csv"), importCSV),
+		widget.NewButton(display.GUIText("export_csv_template"), exportCSVTemplate),
+	)
 	hostHeader := container.NewGridWithColumns(6,
 		widget.NewLabel(display.GUIText("host")), widget.NewLabel(display.GUIText("port")),
 		widget.NewLabel(display.GUIText("user")), widget.NewLabel(display.GUIText("password_source")),
 		widget.NewLabel(display.GUIText("password")),
-		container.NewHBox(
-			widget.NewButton(display.GUIText("add_host"), func() { addHostRow(batch.Host{}) }),
-			widget.NewButton(display.GUIText("import_csv"), importCSV),
-		),
+		widget.NewLabel(""),
 	)
 	securityNotice := widget.NewLabel(display.GUIText("csv_security"))
 	securityNotice.Wrapping = fyne.TextWrapWord
@@ -547,7 +553,7 @@ func main() {
 	})
 	stopButton.Disable()
 
-	saveGenerated := func(fileName string, generate func(io.Writer) error) {
+	saveGenerated = func(fileName string, generate func(io.Writer) error) {
 		save := dialog.NewFileSave(func(writer fyne.URIWriteCloser, err error) {
 			if err != nil {
 				status.SetText(display.GUIText("save_failed") + ": " + err.Error())
@@ -593,6 +599,18 @@ func main() {
 				return htmlreport.GenerateFailedScanHTML(writer, currentFailedReport)
 			}
 			return htmlreport.GenerateHTML(writer, currentReport)
+		})
+	}
+	exportCSV := func() {
+		if !hasReport && !hasFailedReport {
+			status.SetText(display.GUIText("no_report"))
+			return
+		}
+		saveGenerated("lpe-checker-report.csv", func(writer io.Writer) error {
+			if hasFailedReport {
+				return htmlreport.GenerateCSV(writer, model.Report{ScanTarget: currentFailedReport.ScanTarget})
+			}
+			return htmlreport.GenerateCSV(writer, currentReport)
 		})
 	}
 
@@ -681,6 +699,12 @@ func main() {
 			return htmlreport.GenerateBatchJSON(writer, batchReport)
 		})
 	}
+	exportBatchCSVResults := func(results []batch.Result) {
+		batchReport := htmlreport.NewBatchReport(batchReportHosts(results), time.Now())
+		saveGenerated("lpe-checker-batch-report.csv", func(writer io.Writer) error {
+			return htmlreport.GenerateBatchCSV(writer, batchReport)
+		})
+	}
 	exportAllHTMLButton := widget.NewButton(display.GUIText("export_all_html"), func() {
 		exportAllBatch(func(results []batch.Result) {
 			exportBatchHTMLResults(results)
@@ -689,6 +713,11 @@ func main() {
 	exportAllJSONButton := widget.NewButton(display.GUIText("export_all_json"), func() {
 		exportAllBatch(func(results []batch.Result) {
 			exportBatchJSONResults(results)
+		})
+	})
+	exportAllCSVButton := widget.NewButton(display.GUIText("export_all_csv"), func() {
+		exportAllBatch(func(results []batch.Result) {
+			exportBatchCSVResults(results)
 		})
 	})
 	exportSelectedHTMLButton := widget.NewButton(display.GUIText("export_selected_html"), func() {
@@ -701,19 +730,26 @@ func main() {
 			exportBatchJSONResults(results)
 		})
 	})
-	batchExportButtons = []*widget.Button{exportAllHTMLButton, exportAllJSONButton, exportSelectedHTMLButton, exportSelectedJSONButton}
+	exportSelectedCSVButton := widget.NewButton(display.GUIText("export_selected_csv"), func() {
+		exportSelectedBatch(func(results []batch.Result) {
+			exportBatchCSVResults(results)
+		})
+	})
+	batchExportButtons = []*widget.Button{exportAllHTMLButton, exportAllJSONButton, exportAllCSVButton, exportSelectedHTMLButton, exportSelectedJSONButton, exportSelectedCSVButton}
 	for _, button := range batchExportButtons {
 		button.Disable()
 	}
 	exportActions := container.NewHScroll(container.NewHBox(
 		widget.NewButton(display.GUIText("export_html"), exportHTML),
 		widget.NewButton(display.GUIText("export_json"), exportJSON),
-		exportAllHTMLButton, exportAllJSONButton, exportSelectedHTMLButton, exportSelectedJSONButton,
+		widget.NewButton(display.GUIText("export_csv"), exportCSV),
+		exportAllHTMLButton, exportAllJSONButton, exportAllCSVButton,
+		exportSelectedHTMLButton, exportSelectedJSONButton, exportSelectedCSVButton,
 	))
 	actions := container.NewBorder(nil, nil, container.NewHBox(scanButton, stopButton, status), nil, exportActions)
 	configContent := container.New(&compactVBoxLayout{gap: 2},
 		credentialHeader, credentialRowsBox,
-		hostHeader, securityNotice, hostRowsBox,
+		hostActions, hostHeader, securityNotice, hostRowsBox,
 		ruleHeader, ruleRows,
 	)
 	configScroll := container.NewVScroll(configContent)
