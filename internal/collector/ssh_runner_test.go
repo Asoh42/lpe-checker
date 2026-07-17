@@ -47,6 +47,7 @@ func TestBuildSSHCommandAllowsReadOnlyCommands(t *testing.T) {
 	}{
 		{name: "uname", args: []string{"-r"}, want: "'uname' '-r'"},
 		{name: "uname", args: []string{"-m"}, want: "'uname' '-m'"},
+		{name: "/sbin/lsmod", want: "'/sbin/lsmod'"},
 		{name: "find", args: []string{"/lib/modules/6.1.0-test", "-name", "algif_aead.ko*", "-type", "f"}, want: "'find' '/lib/modules/6.1.0-test' '-name' 'algif_aead.ko*' '-type' 'f'"},
 	}
 	for _, tt := range tests {
@@ -68,7 +69,7 @@ func TestBuildSSHCommandAllowsAllCollectorCommandShapes(t *testing.T) {
 		{name: "uname", args: []string{"-m"}},
 		{name: "id"},
 		{name: "sudo", args: []string{"-n", "-l"}},
-		{name: "lsmod"},
+		{name: "/sbin/lsmod"},
 		{name: "cat", args: []string{"/etc/os-release"}},
 		{name: "hostname"},
 		{name: "find", args: suidArgs},
@@ -78,6 +79,61 @@ func TestBuildSSHCommandAllowsAllCollectorCommandShapes(t *testing.T) {
 		if _, err := buildSSHCommand(testAllowedKernelModules, tt.name, tt.args...); err != nil {
 			t.Fatalf("collector command %s %#v was rejected: %v", tt.name, tt.args, err)
 		}
+	}
+}
+
+func TestSSHRunnerMapsLSModToAbsoluteRemotePath(t *testing.T) {
+	session := &mockSSHSession{output: []byte("Module Size Used by\n")}
+	runner := &SSHRunner{
+		Config: SSHConfig{Host: "example", User: "tester", Password: "example-password"},
+		dial: func(context.Context, SSHConfig) (sshClient, error) {
+			return &mockSSHClient{session: session}, nil
+		},
+	}
+	if _, err := runner.Run(context.Background(), "lsmod"); err != nil {
+		t.Fatal(err)
+	}
+	if session.command != "'/sbin/lsmod'" {
+		t.Fatalf("remote lsmod command = %q; want %q", session.command, "'/sbin/lsmod'")
+	}
+}
+
+func TestSSHRunnerKeepsLogicalLSModNameInCommandErrors(t *testing.T) {
+	session := &mockSSHSession{err: errors.New("exit status 1")}
+	runner := &SSHRunner{
+		Config: SSHConfig{Host: "example", User: "tester", Password: "example-password"},
+		dial: func(context.Context, SSHConfig) (sshClient, error) {
+			return &mockSSHClient{session: session}, nil
+		},
+	}
+	_, err := runner.Run(context.Background(), "lsmod")
+	var commandErr *CommandError
+	if !errors.As(err, &commandErr) || commandErr.Name != "lsmod" {
+		t.Fatalf("lsmod command error lost logical name: %v", err)
+	}
+	if session.command != "'/sbin/lsmod'" {
+		t.Fatalf("remote lsmod command = %q; want %q", session.command, "'/sbin/lsmod'")
+	}
+}
+
+func TestBuildSSHCommandRejectsBareRemoteLSMod(t *testing.T) {
+	_, err := buildSSHCommand(testAllowedKernelModules, "lsmod")
+	var rejected *CommandNotAllowedError
+	if !errors.As(err, &rejected) || rejected.Name != "lsmod" {
+		t.Fatalf("bare remote lsmod was not rejected: %v", err)
+	}
+}
+
+func TestSSHRunnerValidatesMappedLSModBeforeDial(t *testing.T) {
+	dialed := false
+	runner := &SSHRunner{dial: func(context.Context, SSHConfig) (sshClient, error) {
+		dialed = true
+		return nil, errors.New("must not dial")
+	}}
+	_, err := runner.Run(context.Background(), "lsmod", "unexpected-argument")
+	var rejected *CommandNotAllowedError
+	if !errors.As(err, &rejected) || rejected.Name != "/sbin/lsmod" || dialed {
+		t.Fatalf("mapped lsmod was not rejected before dial: err=%v dialed=%v", err, dialed)
 	}
 }
 

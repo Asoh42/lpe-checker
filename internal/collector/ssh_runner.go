@@ -21,7 +21,7 @@ const (
 )
 
 var allowedSSHCommands = map[string]struct{}{
-	"uname": {}, "id": {}, "sudo": {}, "lsmod": {}, "cat": {},
+	"uname": {}, "id": {}, "sudo": {}, "/sbin/lsmod": {}, "cat": {},
 	"hostname": {}, "find": {}, "ls": {}, "test": {},
 }
 
@@ -107,7 +107,13 @@ func (r *SSHRunner) SetAllowedKernelModules(moduleNames []string) error {
 func (r *SSHRunner) Run(ctx context.Context, name string, args ...string) (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	command, err := buildSSHCommand(r.allowedKernelModules, name, args...)
+	remoteName := name
+	// Resolve the logical collector name before validation so the allowlist
+	// checks the exact executable path that will be sent to the remote shell.
+	if name == "lsmod" {
+		remoteName = "/sbin/lsmod"
+	}
+	command, err := buildSSHCommand(r.allowedKernelModules, remoteName, args...)
 	if err != nil {
 		return "", err
 	}
@@ -209,7 +215,7 @@ func allowedSSHCommandArgs(allowedKernelModules map[string]struct{}, name string
 	switch name {
 	case "uname":
 		return len(args) == 1 && (args[0] == "-r" || args[0] == "-m")
-	case "id", "lsmod", "hostname":
+	case "id", "/sbin/lsmod", "hostname":
 		return len(args) == 0
 	case "sudo":
 		return len(args) == 2 && args[0] == "-n" && args[1] == "-l"
