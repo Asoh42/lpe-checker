@@ -24,6 +24,7 @@ hosts.csv
 *.test
 *.out
 coverage.out
+*.log
 
 # OS and IDE files
 .DS_Store
